@@ -5,13 +5,17 @@
 }
 
 .location-circle {
-  width: 100%;
-  height: 100%;
-  border: 5px solid orange;
+  width: 50%;
+  height: 50%;
+  border: 10px solid orange;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.location-circle.success {
+  border-color: green;
 }
 
 .location img {
@@ -28,8 +32,8 @@
   height: 30px;
 }
 
-.city { top: 10%; left: 10%; }
-.smallBusiness { top: 20%; right: 20%; }
-.largeOffice { bottom: 30%; left: 30%; }
-.village { top: 40%; left: 50%; }
+.city { top: 35%; left: 10%; }
+.smallBusiness { top: 35%; left: 50%; }
+.largeOffice { bottom: 50%; left: 15%; }
+.village { top: 35%; right: 10%; }
 .oilRig { bottom: 20%; right: 10%; }
