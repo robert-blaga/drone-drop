@@ -183,12 +183,9 @@ svg {
 }
 
 .location-circle {
+  position: relative;
   width: 100%;
   height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
 }
 
 .location-circle img {
@@ -198,7 +195,7 @@ svg {
   object-fit: contain;
 }
 
-.city { top: 45%; left: 3%; }
+.city { top: 40%; left: 1%; }
 .smallBusiness { bottom: 30%; left: 55%; }
 .largeOffice { bottom: 55%; left: 15%; }
 .village { top: 30%; right: 10%; }
@@ -248,4 +245,26 @@ svg {
   font-family: Vampiro One;
   font-size: 3.5em; /* Adjust this value */
   animation: neon6 1.5s ease-in-out infinite alternate;
+}
+
+.location-circle {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.circle-border {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  top: 15%;
+  left: 15%;
+  border: 20px solid white;
+  border-radius: 50%;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+.location.success .circle-border {
+  border-color: rgb(1, 168, 46);
 }
