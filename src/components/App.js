@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Drone from './Drone';
 import Map from './Map';
 import PasswordDisplay from './PasswordDisplay';
 import '../styles/App.css';
-
-const DROP_SPEED = 2; // Define this at the top of your component or in a constants file
+import '../styles/Map.css';
+const DROP_SPEED = 2;
 
 const App = () => {
   const [locations, setLocations] = useState({
@@ -20,20 +20,19 @@ const App = () => {
   const [activeCards, setActiveCards] = useState([]);
   const [droneVelocity, setDroneVelocity] = useState({ x: 0, y: 0 });
 
-  const [volume, setVolume] = useState(0.5); // Set initial volume to 50%
-  const [defaultVolume] = useState(0.5); // Store the default volume
+  const [volume, setVolume] = useState(0.5);
+  const [defaultVolume] = useState(0.5);
   const audioRef = useRef(null);
 
-  const startAudio = () => {
+  const startAudio = useCallback(() => {
     if (audioRef.current && audioRef.current.paused) {
       audioRef.current.play().catch(error => console.error("Audio play failed:", error));
     }
-  };
+  }, []);
 
   useEffect(() => {
     audioRef.current = new Audio(`${process.env.PUBLIC_URL}/assets/drone.mp3`);
     audioRef.current.loop = true;
-    audioRef.current.volume = volume;
 
     return () => {
       audioRef.current.pause();
@@ -81,7 +80,7 @@ const App = () => {
       default:
         break;
     }
-    setVolume(1); // Set to full volume when any key is pressed
+    setVolume(1);
   }, [handleDrop, startAudio]);
 
   const handleKeyRelease = useCallback((e) => {
@@ -98,7 +97,7 @@ const App = () => {
       default:
         break;
     }
-    setVolume(defaultVolume); // Return to default volume when any key is released
+    setVolume(defaultVolume);
   }, [defaultVolume]);
 
   useEffect(() => {
@@ -110,7 +109,8 @@ const App = () => {
     };
   }, [handleKeyPress, handleKeyRelease]);
 
-  const checkCollision = (cardPosition) => {
+  const checkCollision = useCallback((cardPosition) => {
+    if (!cardPosition) return false;
     const locationTypes = ['city', 'smallBusiness', 'largeOffice', 'village', 'oilRig'];
     for (const locationType of locationTypes) {
       const locationElement = document.querySelector(`.location.${locationType}`);
@@ -131,9 +131,7 @@ const App = () => {
       }
     }
     return false;
-  };
-
-  const allLocationsCovered = Object.values(locations).every(Boolean);
+  }, []);
 
   useEffect(() => {
     const moveInterval = setInterval(() => {
@@ -149,7 +147,7 @@ const App = () => {
   useEffect(() => {
     let animationFrameId;
 
-    const moveCards = (timestamp) => {
+    const moveCards = () => {
       setActiveCards(prevCards => {
         if (!Array.isArray(prevCards)) return [];
         return prevCards.reduce((acc, card) => {
@@ -157,7 +155,7 @@ const App = () => {
           const hasCollided = checkCollision({ ...card, y: newY });
           if (hasCollided) {
             setDroppedCards(prev => [...prev, card]);
-          } else {
+          } else if (newY < window.innerHeight) {
             acc.push({ ...card, y: newY });
           }
           return acc;
@@ -174,8 +172,10 @@ const App = () => {
     };
   }, [checkCollision]);
 
+  const allLocationsCovered = Object.values(locations).every(Boolean);
+
   return (
-    <div className="app">
+    <div className="App">
       <Map 
         locations={locations}
         activeCards={activeCards}
