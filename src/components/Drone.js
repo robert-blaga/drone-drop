@@ -1,28 +1,37 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import GameStart from './GameStart';
 import '../styles/Drone.css';
 
-const DRONE_SIZE = 50;
+const DRONE_SIZE = 65;
 const MOVE_SPEED = 500; // pixels per second
 const ACCELERATION = 300; // pixels per second squared
 const DECELERATION = 200; // pixels per second squared
 const DROP_SPEED = 10; // Initial drop speed (pixels per frame)
 const GRAVITY = 1; // Acceleration due to gravity (pixels per frame squared)
 
-const Drone = ({ onLocationUpdate, onCardDrop }) => {
+const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
   const canvasRef = useRef(null);
-  const dronePositionRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight - 100 });
+  const dronePositionRef = useRef({ 
+    x: window.innerWidth / 2 - DRONE_SIZE / 2, 
+    y: window.innerHeight - 100 
+  });
   const velocityRef = useRef({ x: 0, y: 0 });
   const movementRef = useRef({ w: false, a: false, s: false, d: false });
   const lastUpdateTimeRef = useRef(0);
   const [activeCards, setActiveCards] = useState([]);
   const [droppedCards, setDroppedCards] = useState([]);
+  const [gameStarted, setGameStarted] = useState(false);
   const audioRef = useRef(null);
   const droneImageRef = useRef(null);
   const cardImageRef = useRef(null);
+  const animationFrameIdRef = useRef(null);
 
   useEffect(() => {
-    // Reset drone position and other states when component is re-mounted
-    dronePositionRef.current = { x: window.innerWidth / 2, y: window.innerHeight - 100 };
+    // Reset drone position to bottom when remounted
+    dronePositionRef.current = { 
+      x: window.innerWidth / 2 - DRONE_SIZE / 2, 
+      y: window.innerHeight - 100 
+    };
     velocityRef.current = { x: 0, y: 0 };
     movementRef.current = { w: false, a: false, s: false, d: false };
     lastUpdateTimeRef.current = 0;
@@ -130,102 +139,141 @@ const Drone = ({ onLocationUpdate, onCardDrop }) => {
       const deltaTime = (currentTime - lastUpdateTimeRef.current) / 1000;
       lastUpdateTimeRef.current = currentTime;
 
-      updateVelocity('x', movementRef.current.d, movementRef.current.a, deltaTime);
-      updateVelocity('y', movementRef.current.s, movementRef.current.w, deltaTime);
+      if (gameStarted) {
+        updateVelocity('x', movementRef.current.d, movementRef.current.a, deltaTime);
+        updateVelocity('y', movementRef.current.s, movementRef.current.w, deltaTime);
 
-      dronePositionRef.current.x += velocityRef.current.x * deltaTime;
-      dronePositionRef.current.y += velocityRef.current.y * deltaTime;
+        dronePositionRef.current.x += velocityRef.current.x * deltaTime;
+        dronePositionRef.current.y += velocityRef.current.y * deltaTime;
 
-      dronePositionRef.current.x = Math.max(0, Math.min(canvas.width - DRONE_SIZE, dronePositionRef.current.x));
-      dronePositionRef.current.y = Math.max(0, Math.min(canvas.height - DRONE_SIZE, dronePositionRef.current.y));
+        dronePositionRef.current.x = Math.max(0, Math.min(canvas.width - DRONE_SIZE, dronePositionRef.current.x));
+        dronePositionRef.current.y = Math.max(0, Math.min(canvas.height - DRONE_SIZE, dronePositionRef.current.y));
+      }
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw drone
+      // Draw drone with highlight effect
       if (droneImageRef.current) {
-        ctx.drawImage(droneImageRef.current, dronePositionRef.current.x, dronePositionRef.current.y, DRONE_SIZE, DRONE_SIZE);
+        // Add highlight circle behind drone
+        ctx.beginPath();
+        ctx.arc(
+          dronePositionRef.current.x + DRONE_SIZE/2, 
+          dronePositionRef.current.y + DRONE_SIZE/2, 
+          DRONE_SIZE * 0.75, 
+          0, 
+          Math.PI * 2
+        );
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+        ctx.fill();
+        
+        // Draw the drone
+        ctx.drawImage(
+          droneImageRef.current, 
+          dronePositionRef.current.x, 
+          dronePositionRef.current.y, 
+          DRONE_SIZE, 
+          DRONE_SIZE
+        );
       }
 
-      // Update and draw cards
-      const updatedCards = activeCards.map(card => {
-        const newY = card.y + card.velocity;
-        const hasCollided = checkCollision({ ...card, y: newY });
-        
-        if (hasCollided) {
-          setDroppedCards(prev => [...prev, { ...card, y: newY }]);
-          return null;
-        } else if (newY < canvas.height - 40) {
-          const updatedCard = { 
-            ...card, 
-            y: newY, 
-            velocity: card.velocity + GRAVITY
-          };
-          if (cardImageRef.current) {
-            ctx.drawImage(cardImageRef.current, updatedCard.x, updatedCard.y, 40, 40);
+      // Only update cards if game has started
+      if (gameStarted) {
+        // Update and draw cards
+        const updatedCards = activeCards.map(card => {
+          const newY = card.y + card.velocity;
+          const hasCollided = checkCollision({ ...card, y: newY });
+          
+          if (hasCollided) {
+            setDroppedCards(prev => [...prev, { ...card, y: newY }]);
+            onCardSettled();
+            return null;
+          } else if (newY < canvas.height - 40) {
+            const updatedCard = { 
+              ...card, 
+              y: newY, 
+              velocity: card.velocity + GRAVITY
+            };
+            if (cardImageRef.current) {
+              ctx.drawImage(cardImageRef.current, updatedCard.x, updatedCard.y, 40, 40);
+            }
+            return updatedCard;
+          } else {
+            setDroppedCards(prev => [...prev, { ...card, y: canvas.height - 40 }]);
+            onCardSettled();
+            return null;
           }
-          return updatedCard;
-        } else {
-          setDroppedCards(prev => [...prev, { ...card, y: canvas.height - 40 }]);
-          return null;
-        }
-      }).filter(Boolean);
+        }).filter(Boolean);
 
-      setActiveCards(updatedCards);
+        setActiveCards(updatedCards);
 
-      // Draw dropped cards
-      droppedCards.forEach(card => {
-        if (cardImageRef.current) {
-          ctx.drawImage(cardImageRef.current, card.x, card.y, 40, 40);
-        }
-      });
+        // Draw dropped cards
+        droppedCards.forEach(card => {
+          if (cardImageRef.current) {
+            ctx.drawImage(cardImageRef.current, card.x, card.y, 40, 40);
+          }
+        });
+      }
 
-      requestAnimationFrame(gameLoop);
+      animationFrameIdRef.current = requestAnimationFrame(gameLoop);
     };
 
     const handleKeyDown = (e) => {
-      startAudio();
-      movementRef.current[e.key.toLowerCase()] = true;
-      if (e.key === ' ') {
-        handleDrop();
-      }
-      if (audioRef.current) {
-        audioRef.current.volume = 1;
+      if (gameStarted) {
+        startAudio();
+        movementRef.current[e.key.toLowerCase()] = true;
+        if (e.key === ' ') {
+          handleDrop();
+        }
+        if (audioRef.current) {
+          audioRef.current.volume = 0.5;
+        }
       }
     };
 
     const handleKeyUp = (e) => {
-      movementRef.current[e.key.toLowerCase()] = false;
-      if (audioRef.current) {
-        audioRef.current.volume = 0.5;
+      if (gameStarted) {
+        movementRef.current[e.key.toLowerCase()] = false;
+        if (audioRef.current) {
+          audioRef.current.volume = 0.2;
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    const animationFrameId = requestAnimationFrame(gameLoop);
+    animationFrameIdRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
     };
-  }, [startAudio, handleDrop, checkCollision, activeCards, droppedCards]);
+  }, [startAudio, handleDrop, checkCollision, activeCards, droppedCards, gameStarted, onCardSettled]);
+
+  const handleGameStart = useCallback(() => {
+    setGameStarted(true);
+  }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        display: 'block',
-        width: '100%',
-        height: '100%',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 10,
-      }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          zIndex: 10,
+        }}
+      />
+      {!gameStarted && <GameStart onGameStart={handleGameStart} />}
+    </>
   );
 };
 

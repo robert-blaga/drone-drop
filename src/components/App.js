@@ -18,6 +18,7 @@ const App = () => {
   const [availableCards, setAvailableCards] = useState(INITIAL_CARDS);
   const [gameOver, setGameOver] = useState(false);
   const [restartKey, setRestartKey] = useState(0);
+  const [activeCardsCount, setActiveCardsCount] = useState(0);
 
   const handleLocationUpdate = useCallback((locationType, value) => {
     setLocations(prev => ({ ...prev, [locationType]: value }));
@@ -26,10 +27,15 @@ const App = () => {
   const handleCardDrop = useCallback(() => {
     if (availableCards > 0) {
       setAvailableCards(prev => prev - 1);
+      setActiveCardsCount(prev => prev + 1);
       return true;
     }
     return false;
   }, [availableCards]);
+
+  const handleCardSettled = useCallback(() => {
+    setActiveCardsCount(prev => Math.max(0, prev - 1));
+  }, []);
 
   const resetGame = useCallback(() => {
     setLocations({
@@ -41,6 +47,7 @@ const App = () => {
     });
     setAvailableCards(INITIAL_CARDS);
     setGameOver(false);
+    setActiveCardsCount(0);
     setRestartKey(prev => prev + 1);
   }, []);
 
@@ -48,12 +55,12 @@ const App = () => {
   const allLocationsCovered = locationsCompleted === 5;
 
   useEffect(() => {
-    if (availableCards === 0 && !allLocationsCovered) {
+    if (availableCards === 0 && activeCardsCount === 0 && !allLocationsCovered) {
       setGameOver(true);
     } else if (allLocationsCovered) {
       setGameOver(false);
     }
-  }, [availableCards, allLocationsCovered]);
+  }, [availableCards, activeCardsCount, allLocationsCovered]);
 
   return (
     <div className="App" style={{ position: 'relative', overflow: 'hidden' }}>
@@ -61,7 +68,8 @@ const App = () => {
         <Drone 
           key={restartKey}
           onLocationUpdate={handleLocationUpdate} 
-          onCardDrop={handleCardDrop} 
+          onCardDrop={handleCardDrop}
+          onCardSettled={handleCardSettled}
         />
       </Map>
       <GameDashboard locationsCompleted={locationsCompleted} availableCards={availableCards} />

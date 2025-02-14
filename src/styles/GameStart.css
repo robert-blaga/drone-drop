@@ -1,0 +1,89 @@
+.game-start-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.game-instructions {
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 30px 40px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.game-instructions h2 {
+  color: white;
+  font-size: 28px;
+  margin: 0 0 20px 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.instruction-list {
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.instruction-list p {
+  margin: 10px 0;
+}
+
+.key {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  margin: 0 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.start-button {
+  padding: 15px 40px;
+  font-size: 24px;
+  background-color: #ff5e00;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.start-button:hover {
+  background-color: #e65500;
+  transform: scale(1.05);
+}
+
+.countdown {
+  font-size: 120px;
+  color: white;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+} 
