@@ -1,22 +1,24 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import GameStart from './GameStart';
-import '../styles/Drone.css';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import "../styles/Drone.css";
+import GameStart from "./GameStart";
 
 const DRONE_SIZE = 65;
-const MOVE_SPEED = 500; // pixels per second
-const ACCELERATION = 300; // pixels per second squared
-const DECELERATION = 200; // pixels per second squared
+const MOVE_SPEED = 320; // Drone travel speed in pixels per second
 const DROP_SPEED = 10; // Initial drop speed (pixels per frame)
 const GRAVITY = 1; // Acceleration due to gravity (pixels per frame squared)
 
 const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
   const canvasRef = useRef(null);
-  const dronePositionRef = useRef({ 
-    x: window.innerWidth / 2 - DRONE_SIZE / 2, 
-    y: window.innerHeight - 100 
+  const dronePositionRef = useRef({
+    x: window.innerWidth / 2 - DRONE_SIZE / 2,
+    y: window.innerHeight - 100,
   });
-  const velocityRef = useRef({ x: 0, y: 0 });
-  const movementRef = useRef({ w: false, a: false, s: false, d: false });
+  const movementRef = useRef({
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  });
   const lastUpdateTimeRef = useRef(0);
   const [activeCards, setActiveCards] = useState([]);
   const [droppedCards, setDroppedCards] = useState([]);
@@ -28,12 +30,11 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
 
   useEffect(() => {
     // Reset drone position to bottom when remounted
-    dronePositionRef.current = { 
-      x: window.innerWidth / 2 - DRONE_SIZE / 2, 
-      y: window.innerHeight - 100 
+    dronePositionRef.current = {
+      x: window.innerWidth / 2 - DRONE_SIZE / 2,
+      y: window.innerHeight - 100,
     };
-    velocityRef.current = { x: 0, y: 0 };
-    movementRef.current = { w: false, a: false, s: false, d: false };
+    movementRef.current = { up: false, down: false, left: false, right: false };
     lastUpdateTimeRef.current = 0;
     setActiveCards([]);
     setDroppedCards([]);
@@ -54,14 +55,20 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      dronePositionRef.current.x = Math.min(dronePositionRef.current.x, canvas.width - DRONE_SIZE);
-      dronePositionRef.current.y = Math.min(dronePositionRef.current.y, canvas.height - DRONE_SIZE);
+      dronePositionRef.current.x = Math.min(
+        dronePositionRef.current.x,
+        canvas.width - DRONE_SIZE
+      );
+      dronePositionRef.current.y = Math.min(
+        dronePositionRef.current.y,
+        canvas.height - DRONE_SIZE
+      );
     };
 
-    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener("resize", resizeCanvas);
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener("resize", resizeCanvas);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -71,7 +78,9 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
 
   const startAudio = useCallback(() => {
     if (audioRef.current && audioRef.current.paused) {
-      audioRef.current.play().catch(error => console.error("Audio play failed:", error));
+      audioRef.current
+        .play()
+        .catch((error) => console.error("Audio play failed:", error));
     }
   }, []);
 
@@ -81,55 +90,51 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
         x: dronePositionRef.current.x + (DRONE_SIZE - 40) / 2,
         y: dronePositionRef.current.y + DRONE_SIZE,
         id: Date.now(),
-        velocity: DROP_SPEED
+        velocity: DROP_SPEED,
       };
-      setActiveCards(prev => [...prev, newCard]);
+      setActiveCards((prev) => [...prev, newCard]);
     }
   }, [onCardDrop]);
 
-  const updateVelocity = (axis, positive, negative, deltaTime) => {
-    const direction = positive ? 1 : negative ? -1 : 0;
-    if (direction !== 0) {
-      velocityRef.current[axis] += direction * ACCELERATION * deltaTime;
-      velocityRef.current[axis] = Math.min(Math.max(velocityRef.current[axis], -MOVE_SPEED), MOVE_SPEED);
-    } else {
-      const deceleration = DECELERATION * deltaTime;
-      if (Math.abs(velocityRef.current[axis]) <= deceleration) {
-        velocityRef.current[axis] = 0;
-      } else {
-        velocityRef.current[axis] -= Math.sign(velocityRef.current[axis]) * deceleration;
-      }
-    }
-  };
+  const checkCollision = useCallback(
+    (cardPosition) => {
+      if (!cardPosition) return false;
+      const locationTypes = [
+        "city",
+        "smallBusiness",
+        "largeOffice",
+        "village",
+        "oilRig",
+      ];
+      for (const locationType of locationTypes) {
+        const locationElement = document.querySelector(
+          `.location.${locationType}`
+        );
+        if (locationElement) {
+          const rect = locationElement.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const radius = rect.width / 2;
 
-  const checkCollision = useCallback((cardPosition) => {
-    if (!cardPosition) return false;
-    const locationTypes = ['city', 'smallBusiness', 'largeOffice', 'village', 'oilRig'];
-    for (const locationType of locationTypes) {
-      const locationElement = document.querySelector(`.location.${locationType}`);
-      if (locationElement) {
-        const rect = locationElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const radius = rect.width / 2;
-        
-        const dx = cardPosition.x - centerX;
-        const dy = cardPosition.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance <= radius) {
-          onLocationUpdate(locationType, true);
-          locationElement.classList.add('success');
-          return true;
+          const dx = cardPosition.x - centerX;
+          const dy = cardPosition.y - centerY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance <= radius) {
+            onLocationUpdate(locationType, true);
+            locationElement.classList.add("success");
+            return true;
+          }
         }
       }
-    }
-    return false;
-  }, [onLocationUpdate]);
+      return false;
+    },
+    [onLocationUpdate]
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
 
     const gameLoop = (currentTime) => {
       if (!lastUpdateTimeRef.current) {
@@ -140,14 +145,36 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
       lastUpdateTimeRef.current = currentTime;
 
       if (gameStarted) {
-        updateVelocity('x', movementRef.current.d, movementRef.current.a, deltaTime);
-        updateVelocity('y', movementRef.current.s, movementRef.current.w, deltaTime);
+        const horizontal =
+          (movementRef.current.right ? 1 : 0) -
+          (movementRef.current.left ? 1 : 0);
+        const vertical =
+          (movementRef.current.down ? 1 : 0) - (movementRef.current.up ? 1 : 0);
 
-        dronePositionRef.current.x += velocityRef.current.x * deltaTime;
-        dronePositionRef.current.y += velocityRef.current.y * deltaTime;
+        let moveX = horizontal;
+        let moveY = vertical;
 
-        dronePositionRef.current.x = Math.max(0, Math.min(canvas.width - DRONE_SIZE, dronePositionRef.current.x));
-        dronePositionRef.current.y = Math.max(0, Math.min(canvas.height - DRONE_SIZE, dronePositionRef.current.y));
+        if (moveX !== 0 && moveY !== 0) {
+          const normalizer = Math.SQRT1_2; // Keep diagonal speed consistent
+          moveX *= normalizer;
+          moveY *= normalizer;
+        }
+
+        const moveDistance = MOVE_SPEED * deltaTime;
+        const deltaX = moveX * moveDistance;
+        const deltaY = moveY * moveDistance;
+
+        dronePositionRef.current.x += deltaX;
+        dronePositionRef.current.y += deltaY;
+
+        dronePositionRef.current.x = Math.max(
+          0,
+          Math.min(canvas.width - DRONE_SIZE, dronePositionRef.current.x)
+        );
+        dronePositionRef.current.y = Math.max(
+          0,
+          Math.min(canvas.height - DRONE_SIZE, dronePositionRef.current.y)
+        );
       }
 
       // Clear canvas
@@ -158,21 +185,21 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
         // Add highlight circle behind drone
         ctx.beginPath();
         ctx.arc(
-          dronePositionRef.current.x + DRONE_SIZE/2, 
-          dronePositionRef.current.y + DRONE_SIZE/2, 
-          DRONE_SIZE * 0.75, 
-          0, 
+          dronePositionRef.current.x + DRONE_SIZE / 2,
+          dronePositionRef.current.y + DRONE_SIZE / 2,
+          DRONE_SIZE * 0.75,
+          0,
           Math.PI * 2
         );
-        ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+        ctx.fillStyle = "rgba(255, 255, 0, 0.2)";
         ctx.fill();
-        
+
         // Draw the drone
         ctx.drawImage(
-          droneImageRef.current, 
-          dronePositionRef.current.x, 
-          dronePositionRef.current.y, 
-          DRONE_SIZE, 
+          droneImageRef.current,
+          dronePositionRef.current.x,
+          dronePositionRef.current.y,
+          DRONE_SIZE,
           DRONE_SIZE
         );
       }
@@ -180,35 +207,46 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
       // Only update cards if game has started
       if (gameStarted) {
         // Update and draw cards
-        const updatedCards = activeCards.map(card => {
-          const newY = card.y + card.velocity;
-          const hasCollided = checkCollision({ ...card, y: newY });
-          
-          if (hasCollided) {
-            setDroppedCards(prev => [...prev, { ...card, y: newY }]);
-            onCardSettled();
-            return null;
-          } else if (newY < canvas.height - 40) {
-            const updatedCard = { 
-              ...card, 
-              y: newY, 
-              velocity: card.velocity + GRAVITY
-            };
-            if (cardImageRef.current) {
-              ctx.drawImage(cardImageRef.current, updatedCard.x, updatedCard.y, 40, 40);
+        const updatedCards = activeCards
+          .map((card) => {
+            const newY = card.y + card.velocity;
+            const hasCollided = checkCollision({ ...card, y: newY });
+
+            if (hasCollided) {
+              setDroppedCards((prev) => [...prev, { ...card, y: newY }]);
+              onCardSettled();
+              return null;
+            } else if (newY < canvas.height - 40) {
+              const updatedCard = {
+                ...card,
+                y: newY,
+                velocity: card.velocity + GRAVITY,
+              };
+              if (cardImageRef.current) {
+                ctx.drawImage(
+                  cardImageRef.current,
+                  updatedCard.x,
+                  updatedCard.y,
+                  40,
+                  40
+                );
+              }
+              return updatedCard;
+            } else {
+              setDroppedCards((prev) => [
+                ...prev,
+                { ...card, y: canvas.height - 40 },
+              ]);
+              onCardSettled();
+              return null;
             }
-            return updatedCard;
-          } else {
-            setDroppedCards(prev => [...prev, { ...card, y: canvas.height - 40 }]);
-            onCardSettled();
-            return null;
-          }
-        }).filter(Boolean);
+          })
+          .filter(Boolean);
 
         setActiveCards(updatedCards);
 
         // Draw dropped cards
-        droppedCards.forEach(card => {
+        droppedCards.forEach((card) => {
           if (cardImageRef.current) {
             ctx.drawImage(cardImageRef.current, card.x, card.y, 40, 40);
           }
@@ -218,41 +256,83 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
       animationFrameIdRef.current = requestAnimationFrame(gameLoop);
     };
 
+    const mapKeyToDirection = (key) => {
+      switch (key) {
+        case "ArrowUp":
+        case "w":
+        case "W":
+          return "up";
+        case "ArrowDown":
+        case "s":
+        case "S":
+          return "down";
+        case "ArrowLeft":
+        case "a":
+        case "A":
+          return "left";
+        case "ArrowRight":
+        case "d":
+        case "D":
+          return "right";
+        default:
+          return null;
+      }
+    };
+
     const handleKeyDown = (e) => {
       if (gameStarted) {
-        startAudio();
-        movementRef.current[e.key.toLowerCase()] = true;
-        if (e.key === ' ') {
+        const direction = mapKeyToDirection(e.key);
+        if (direction) {
+          e.preventDefault();
+          movementRef.current[direction] = true;
+          startAudio();
+          if (audioRef.current) {
+            audioRef.current.volume = 0.5;
+          }
+        } else if (e.key === " ") {
+          e.preventDefault();
           handleDrop();
-        }
-        if (audioRef.current) {
-          audioRef.current.volume = 0.5;
+          if (audioRef.current) {
+            audioRef.current.volume = 0.5;
+          }
         }
       }
     };
 
     const handleKeyUp = (e) => {
       if (gameStarted) {
-        movementRef.current[e.key.toLowerCase()] = false;
+        const direction = mapKeyToDirection(e.key);
+        if (direction) {
+          e.preventDefault();
+          movementRef.current[direction] = false;
+        }
         if (audioRef.current) {
           audioRef.current.volume = 0.2;
         }
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     animationFrameIdRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, [startAudio, handleDrop, checkCollision, activeCards, droppedCards, gameStarted, onCardSettled]);
+  }, [
+    startAudio,
+    handleDrop,
+    checkCollision,
+    activeCards,
+    droppedCards,
+    gameStarted,
+    onCardSettled,
+  ]);
 
   const handleGameStart = useCallback(() => {
     setGameStarted(true);
@@ -263,10 +343,8 @@ const Drone = ({ onLocationUpdate, onCardDrop, onCardSettled }) => {
       <canvas
         ref={canvasRef}
         style={{
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          position: 'absolute',
+          display: "block",
+          position: "absolute",
           top: 0,
           left: 0,
           zIndex: 10,

@@ -27,7 +27,7 @@ const GameStart = ({ onGameStart }) => {
         <div className="game-instructions">
           <h2>How to Play</h2>
           <div className="instruction-list">
-            <p>Use <span className="key">W A S D</span> keyboard keys to move the drone</p>
+            <p>Use the <span className="key">Arrow Keys</span> to move the drone</p>
             <p><span className="key">SPACE</span> to drop credit cards</p>
             <p>Deliver cards to all customers to reveal the password</p>
           </div>
